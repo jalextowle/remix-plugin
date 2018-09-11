@@ -1,0 +1,3 @@
+TODO List:
+- Add files in batches to truffle. This should be as easy of a process as possible.
+- Try to add a get truffle repo feature

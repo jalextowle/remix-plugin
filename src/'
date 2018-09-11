@@ -25,37 +25,12 @@ window.onload = function () {
 
   // This is the start of my truffle plugin
   var truffle_file_path = "/test_truffle_plugin"
-  var config_file = "/truffle_files.txt"
+  var current_file = ""
+  var current_file_contents = ""
 
-  document.querySelector('input#addTruffleDirectory').addEventListener('click', function () { 
-    extension.call('config', 'setConfig', ['dir', document.getElementById('truffle_directory').value], function (error, result) {
-      console.log(error, result)
-    })
+  document.querySelector('input#addToFileList').addEventListener('click', function () {
+    extension.call('config', 'getConfig', [
   })
-
-  document.querySelector('input#trackfile').addEventListener('click', function () { 
-    extension.call('config', 'getConfig', ['tracked_files'], function (error, result) {
-      console.log(error, result)
-      extension.call('config', 'setConfig', ['tracked_files', result + document.getElementById('file').value], function (error, result) {
-        console.log(error, result)
-      })
-    })
-  })
-
-  /*
-  document.querySelector('input#addfiletruffle').addEventListener('click', async function () {
-    let contents
-    await extension.call('config', 'getConfig', [config_file], function (error, result) {
-      console.log(error)
-      console.log("These are the contents of the config file: ")
-      console.log(result)
-      contents = result
-    })
-    if (contents) {
-      await extenstion.call('
-    }
-  })
-  */
 
   document.querySelector('input#currentfilegetter').addEventListener('click', function () {
     extension.call('editor', 'getCurrentFile', [], function(error, result) { 
@@ -64,6 +39,8 @@ window.onload = function () {
       current_file = result[0]
     })
   })
+
+
 
   document.querySelector('input#filegetter').addEventListener('click', function () {
       extension.call('editor', 'getFile', [current_file], function(error, result) {

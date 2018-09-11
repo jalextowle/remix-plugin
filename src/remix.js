@@ -18,6 +18,8 @@ function receiveMessage (event) {
 }
 window.addEventListener('message', receiveMessage, false)
 
+
+
 window.onload = function () {
   document.querySelector('input#testmessageadd').addEventListener('click', function () {
     window.parent.postMessage(JSON.stringify({
