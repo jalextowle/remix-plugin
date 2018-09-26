@@ -1,3 +1,7 @@
 TODO List:
-- Add files in batches to truffle. This should be as easy of a process as possible.
-- Try to add a get truffle repo feature
+- Add files in batches to truffle.
+  - Set up config files to track files in browser directory
+  - Add button to track files
+- Add files in batches to browser.
+  - Set up config files to track files in truffle directory 
+  - Add button to track files

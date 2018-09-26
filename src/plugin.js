@@ -1,80 +1,96 @@
-/*
-test contract creation
-*/
-
-var addrResolverByteCode = '0x6060604052341561000f57600080fd5b33600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555061033c8061005f6000396000f300606060405260043610610062576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806338cc483114610067578063767800de146100bc578063a6f9dae114610111578063d1d80fdf1461014a575b600080fd5b341561007257600080fd5b61007a610183565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34156100c757600080fd5b6100cf6101ac565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b341561011c57600080fd5b610148600480803573ffffffffffffffffffffffffffffffffffffffff169060200190919050506101d1565b005b341561015557600080fd5b610181600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610271565b005b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905090565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561022d57600080fd5b80600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161415156102cd57600080fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550505600a165627a7a723058201b23355f578cb9a23c0a43a440ab2631b62df7be0a8e759812a70f01344224da0029'
-
-const addrResolverTx = {
-  gasLimit: '0x2710',
-  from: '0xca35b7d915458ef540ade6068dfe2f44e8fa733c',
-  data: addrResolverByteCode,
-  value: '0x00',
-  useCall: false
-}
 var extension = new window.RemixExtension()
-window.onload = function () {
-  extension.listen('compiler', 'compilationFinished', function () {
-    console.log(arguments)
-  })
 
-  setInterval(function () {
-    extension.call('app', 'detectNetWork', [], function (error, result) {
-      console.log(error, result)
-    })
-  }, 5000)
+class Remixd {
+  constructor (port) {
+    this.port = port
+    this.callbacks = {}
+    this.callid = 0
+    this.socket = null
+    this.connected = false
+  }
 
-  // This is the start of my truffle plugin
-  var truffle_file_path = "/test_truffle_plugin"
-  var config_file = "/truffle_files.txt"
+  online () {
+    return this.socket !== null
+  }
 
-  document.querySelector('input#addTruffleDirectory').addEventListener('click', function () { 
-    extension.call('config', 'setConfig', ['dir', document.getElementById('truffle_directory').value], function (error, result) {
-      console.log(error, result)
-    })
-  })
-
-  document.querySelector('input#trackfile').addEventListener('click', function () { 
-    extension.call('config', 'getConfig', ['tracked_files'], function (error, result) {
-      console.log(error, result)
-      extension.call('config', 'setConfig', ['tracked_files', result + document.getElementById('file').value], function (error, result) {
-        console.log(error, result)
-      })
-    })
-  })
-
-  /*
-  document.querySelector('input#addfiletruffle').addEventListener('click', async function () {
-    let contents
-    await extension.call('config', 'getConfig', [config_file], function (error, result) {
-      console.log(error)
-      console.log("These are the contents of the config file: ")
-      console.log(result)
-      contents = result
-    })
-    if (contents) {
-      await extenstion.call('
+  close () {
+    if (this.socket) {
+      this.socket.close()
+      this.socket = null
     }
-  })
-  */
+  }
 
-  document.querySelector('input#currentfilegetter').addEventListener('click', function () {
-    extension.call('editor', 'getCurrentFile', [], function(error, result) { 
-      console.log(result)
-      console.log(result[0])
-      current_file = result[0]
+  start (cb) {
+    if (this.socket) {
+      try {
+        this.socket.close()
+      } catch (e) {}
+    }
+    this.socket = new WebSocket('ws://localhost:' + this.port, 'echo-protocol') // eslint-disable-line
+  }
+    
+  call (service, fn, args, callback) {
+    this.ensureSocket((error) => {
+      if (error) return callback(error)
+      if (this.socket && this.socket.readyState === this.socket.OPEN) {
+        var data = this.format(service, fn, args)
+        this.callbacks[data.id] = callback
+        this.socket.send(JSON.stringify(data))
+      } else {
+        callback('Socket not ready. state:' + this.socket.readyState)
+      }
+    })
+  }
+
+  ensureSocket (cb) {
+    if (this.socket) return cb(null, this.socket)
+    this.start((error) => {
+      if (error) {
+        cb(error)
+      } else {
+        cb(null, this.socket)
+      }
+    })
+  }
+
+  format (service, fn, args) {
+    var data = {
+      id: this.callid,
+      service: service,
+      fn: fn,
+      args: args
+    }
+    this.callid++
+    return data
+  }
+}
+
+window.onload = function () {
+
+  var remixd = new Remixd(65520)
+  remixd.start()
+
+  var truffle_init = function (cb) {
+    remixd.call('truffle', 'init', {}, (error, output) => {
+      cb(error, output)
+    })
+  }
+  
+  document.querySelector('input#truffleinit').addEventListener('click', function () {
+    truffle_init((error, output) => {
+      console.log(error, output)
     })
   })
 
-  document.querySelector('input#filegetter').addEventListener('click', function () {
-      extension.call('editor', 'getFile', [current_file], function(error, result) {
-        console.log(error, result)
+  document.querySelector('input#truffletest').addEventListener('click', function () {
+      remixd.call('truffle', 'test', {}, (error, output) => {
+        if (error) {
+          console.log(error)
+        } else if (output) {
+          console.log(output)
+        }
       })
   })
 
-  document.querySelector('input#filesetter').addEventListener('click', function () {
-      extension.call('editor', 'setFile', ["localhost/blahblah.sol", "ABCDEFG"], function (error, result) {
-        console.log(error, result)
-      })
-  })
 }
 
