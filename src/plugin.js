@@ -1,7 +1,54 @@
 var extension = new window.RemixExtension()
 
+function eventManager () {
+  this.registered = {}
+  this.anonymous = {}
+}
+
+eventManager.prototype.unregister = function (eventName, obj, func) {
+  if (!this.registered[eventName]) {
+    return
+  }
+  if (obj instanceof Function) {
+    func = obj
+    obj = this.anonymous
+  }
+  for (var reg in this.registered[eventName]) {
+    if (this.registered[eventName][reg].obj === obj && this.registered[eventName][reg].func === func) {
+      this.registered[eventName].splice(reg, 1)
+    }
+  }
+}
+
+eventManager.prototype.register = function (eventName, obj, func) {
+  if (!this.registered[eventName]) {
+    this.registered[eventName] = []
+  }
+  if (obj instanceof Function) {
+    func = obj
+    obj = this.anonymous
+  }
+  this.registered[eventName].push({
+    obj: obj,
+    func: func
+  })
+}
+
+eventManager.prototype.trigger = function (eventName, args) {
+  if (!this.registered[eventName]) {
+    return
+  }
+  for (var listener in this.registered[eventName]) {
+    var l = this.registered[eventName][listener]
+    l.func.apply(l.obj === this.anonymous ? {} : l.obj, args)
+  }
+}
+
+var EventManager = eventManager
+
 class Remixd {
   constructor (port) {
+    this.event = new EventManager()
     this.port = port
     this.callbacks = {}
     this.callid = 0
@@ -26,9 +73,64 @@ class Remixd {
         this.socket.close()
       } catch (e) {}
     }
+    this.event.trigger('connecting', [])
     this.socket = new WebSocket('ws://localhost:' + this.port, 'echo-protocol') // eslint-disable-line
+
+    this.socket.addEventListener('open', (event) => {
+      this.connected = true
+      this.event.trigger('connected', [event])
+      cb()
+    })
+
+    this.socket.addEventListener('message', (event) => {
+      var data = JSON.parse(event.data)
+      if (data.type === 'reply') {
+        if (this.callbacks[data.id]) {
+          this.callbacks[data.id](data.error, data.result)
+          delete this.callbacks[data.id]
+        }
+        this.event.trigger('replied', [data])
+      } else if (data.type === 'notification') {
+        this.event.trigger('notified', [data])
+      } else if (data.type === 'system') {
+        if (data.error) {
+          this.event.trigger('system', [{
+            error: data.error
+          }])
+        }
+      }
+    })
+
+    this.socket.addEventListener('error', (event) => {
+      this.errored(event)
+      cb(event)
+    })
+
+    this.socket.addEventListener('close', (event) => {
+      if (event.wasClean) {
+        this.connected = false
+        this.event.trigger('closed', [event])
+      } else {
+        this.errored(event)
+      }
+      this.socket = null
+    })
   }
-    
+
+  /*
+  errored (event) {
+    function remixdDialog () {
+      return yo`<div>Connection to Remixd closed. Localhost connection not available anymore.</div>`
+    }
+    if (this.connected) {
+      modalDialog('Lost connection to Remixd!', remixdDialog(), {}, {label: ''})
+    }
+    this.connected = false
+    this.socket = null
+    this.event.trigger('errored', [event])
+  }
+  */
+
   call (service, fn, args, callback) {
     this.ensureSocket((error) => {
       if (error) return callback(error)
@@ -67,29 +169,62 @@ class Remixd {
 
 window.onload = function () {
 
+  /// FIXME - Change to 65522 when changing to Yann's version of Remixd
   var remixd = new Remixd(65520)
   remixd.start()
 
-  var truffle_init = function (cb) {
-    remixd.call('truffle', 'init', {}, (error, output) => {
-      cb(error, output)
-    })
-  }
-  
   document.querySelector('input#truffleinit').addEventListener('click', function () {
-    truffle_init((error, output) => {
-      console.log(error, output)
+    remixd.call('truffle', 'init', {}, (error, output) => {
+      if (error) {
+        var newDiv = document.createElement('div')
+        newDiv.id = 'output' 
+        newDiv.appendChild(document.createTextNode('Truffle Init Failed'))
+        var oldDiv = document.getElementById('output')
+        var parentDiv = oldDiv.parentNode
+        parentDiv.replaceChild(newDiv, oldDiv)
+      } else if (output) {
+        var arr = output.split('\n')
+        var newDiv = document.createElement('div')
+        newDiv.id = 'output' 
+        newDiv.appendChild(document.createTextNode('Truffle Init Output:'))
+        newDiv.appendChild(document.createElement('br'))
+        for (var i = 0; i < arr.length; i++) {
+          newDiv.appendChild(document.createTextNode(arr[i]))
+          newDiv.appendChild(document.createElement('br'))
+        }
+        var oldDiv = document.getElementById('output')
+        var parentDiv = oldDiv.parentNode
+        parentDiv.replaceChild(newDiv, oldDiv)
+      }
     })
   })
 
   document.querySelector('input#truffletest').addEventListener('click', function () {
-      remixd.call('truffle', 'test', {}, (error, output) => {
-        if (error) {
-          console.log(error)
-        } else if (output) {
-          console.log(output)
+    remixd.call('truffle', 'test', {}, (error, output) => {
+      if (error) {
+        var newDiv = document.createElement('div')
+        newDiv.id = 'output' 
+        newDiv.appendChild(document.createTextNode('Truffle Test Failed'))
+        var oldDiv = document.getElementById('output')
+        var parentDiv = oldDiv.parentNode
+        parentDiv.replaceChild(newDiv, oldDiv)
+      } else if (output) {
+        output = output.replace(/\[0m/g, '').replace(/\[32m/g, '').replace(/\[90m/g, '').replace(/\[92m/g, '')
+        var arr = output.split('\n')
+        arr = arr.slice(2, arr.length)
+        var newDiv = document.createElement('div')
+        newDiv.id = 'output' 
+        newDiv.appendChild(document.createTextNode('Truffle Test Output:'))
+        newDiv.appendChild(document.createElement('br'))
+        for (var i = 0; i < arr.length; i++) {
+          newDiv.appendChild(document.createTextNode(arr[i]))
+          newDiv.appendChild(document.createElement('br'))
         }
-      })
+        var oldDiv = document.getElementById('output')
+        var parentDiv = oldDiv.parentNode
+        parentDiv.replaceChild(newDiv, oldDiv)
+      }
+    })
   })
 
 }
