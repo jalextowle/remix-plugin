@@ -100,36 +100,7 @@ class Remixd {
         }
       }
     })
-
-    this.socket.addEventListener('error', (event) => {
-      this.errored(event)
-      cb(event)
-    })
-
-    this.socket.addEventListener('close', (event) => {
-      if (event.wasClean) {
-        this.connected = false
-        this.event.trigger('closed', [event])
-      } else {
-        this.errored(event)
-      }
-      this.socket = null
-    })
   }
-
-  /*
-  errored (event) {
-    function remixdDialog () {
-      return yo`<div>Connection to Remixd closed. Localhost connection not available anymore.</div>`
-    }
-    if (this.connected) {
-      modalDialog('Lost connection to Remixd!', remixdDialog(), {}, {label: ''})
-    }
-    this.connected = false
-    this.socket = null
-    this.event.trigger('errored', [event])
-  }
-  */
 
   call (service, fn, args, callback) {
     this.ensureSocket((error) => {
@@ -169,8 +140,7 @@ class Remixd {
 
 window.onload = function () {
 
-  /// FIXME - Change to 65522 when changing to Yann's version of Remixd
-  var remixd = new Remixd(65520)
+  var remixd = new Remixd(65522)
   remixd.start()
 
   document.querySelector('input#truffleinit').addEventListener('click', function () {
