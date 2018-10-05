@@ -1,4 +1,4 @@
-var extension = new window.RemixExtension()
+/******************************* Event Manager *****************************/
 
 function eventManager () {
   this.registered = {}
@@ -45,6 +45,8 @@ eventManager.prototype.trigger = function (eventName, args) {
 }
 
 var EventManager = eventManager
+
+/**************************** Remixd ****************************/
 
 class Remixd {
   constructor (port) {
@@ -138,6 +140,37 @@ class Remixd {
   }
 }
 
+/************************************ Helpers *****************************************/
+
+function create(headline) {
+  var new_div = document.createElement('div')
+  new_div.id = 'output' 
+  new_div.appendChild(document.createTextNode(headline))
+  return new_div
+}
+
+function replace(new_div) {
+  var old_div = document.getElementById('output')
+  var parent_div = old_div.parentNode
+  parent_div.replaceChild(new_div, old_div)
+}
+
+function append(new_div, arr) {
+  for (var i = 0; i < arr.length; i++) {
+    new_div.appendChild(document.createTextNode(arr[i]))
+    new_div.appendChild(document.createElement('br'))
+  }
+}
+
+
+/************************************ Plugin ******************************************/
+
+var create_new_output = create
+var replace_output = replace
+var append_output = append
+
+var extension = new window.RemixExtension()
+
 window.onload = function () {
 
   var remixd = new Remixd(65522)
@@ -146,25 +179,15 @@ window.onload = function () {
   document.querySelector('input#truffleinit').addEventListener('click', function () {
     remixd.call('truffle', 'init', {}, (error, output) => {
       if (error) {
-        var newDiv = document.createElement('div')
-        newDiv.id = 'output' 
-        newDiv.appendChild(document.createTextNode('Truffle Init Failed'))
-        var oldDiv = document.getElementById('output')
-        var parentDiv = oldDiv.parentNode
-        parentDiv.replaceChild(newDiv, oldDiv)
+        console.log(error)
+        var new_div = create_new_output('Truffle Init Failed')
+        replace_output(new_div)
       } else if (output) {
         var arr = output.split('\n')
-        var newDiv = document.createElement('div')
-        newDiv.id = 'output' 
-        newDiv.appendChild(document.createTextNode('Truffle Init Output:'))
-        newDiv.appendChild(document.createElement('br'))
-        for (var i = 0; i < arr.length; i++) {
-          newDiv.appendChild(document.createTextNode(arr[i]))
-          newDiv.appendChild(document.createElement('br'))
-        }
-        var oldDiv = document.getElementById('output')
-        var parentDiv = oldDiv.parentNode
-        parentDiv.replaceChild(newDiv, oldDiv)
+        var new_div = create_new_output('Truffle Init Output:')
+        new_div.appendChild(document.createElement('br'))
+        append_output(new_div, arr)
+        replace_output(new_div)
       }
     })
   })
@@ -172,30 +195,56 @@ window.onload = function () {
   document.querySelector('input#truffletest').addEventListener('click', function () {
     remixd.call('truffle', 'test', {}, (error, output) => {
       if (error) {
-        var newDiv = document.createElement('div')
-        newDiv.id = 'output' 
-        newDiv.appendChild(document.createTextNode('Truffle Test Failed'))
-        var oldDiv = document.getElementById('output')
-        var parentDiv = oldDiv.parentNode
-        parentDiv.replaceChild(newDiv, oldDiv)
+        var new_div = create_new_output('Truffle Test Failed')
+        replace_output(new_div)
       } else if (output) {
         output = output.replace(/\[0m/g, '').replace(/\[32m/g, '').replace(/\[90m/g, '').replace(/\[92m/g, '')
         var arr = output.split('\n')
         arr = arr.slice(2, arr.length)
-        var newDiv = document.createElement('div')
-        newDiv.id = 'output' 
-        newDiv.appendChild(document.createTextNode('Truffle Test Output:'))
-        newDiv.appendChild(document.createElement('br'))
-        for (var i = 0; i < arr.length; i++) {
-          newDiv.appendChild(document.createTextNode(arr[i]))
-          newDiv.appendChild(document.createElement('br'))
-        }
-        var oldDiv = document.getElementById('output')
-        var parentDiv = oldDiv.parentNode
-        parentDiv.replaceChild(newDiv, oldDiv)
+        var new_div = create_new_output('Truffle Test Output:')
+        new_div.appendChild(document.createElement('br'))
+        append_output(new_div, arr)
+        replace_output(new_div)
       }
     })
   })
 
+  document.querySelector('input#uploadtruffleenvironment').addEventListener('click', function () {
+    remixd.call('truffle', 'getEnv', {}, (error, output) => {
+      if (error) {
+        var error_output = create_new_output('Environment Upload Unsuccessful')
+        replace_output(error_output)
+      } else if (output) {
+        var truffle_network = JSON.parse(output)
+        var network 
+        // FIXME - This could be cleaner
+        // Use the first network to load to remix 
+        for (net in obj.networks) {
+          network = net
+          break 
+        }
+        var current_network
+        extension.call('app', 'getExecutionContextProvider', [], (provider) => {
+          current_network = provider
+          extension.call('app', 'removeProvider', [ current_network ], (error) => {
+            if (error) {
+              var error_output = create_new_output('Environment Upload Unsuccessful')
+              replace_output(error_output)
+            } else {
+              extension.call('app', 'addProvider', [ Object.keys(truffle_network)[0], truffle_network.host ], (error) => {
+                if (error) { 
+                  var error_output = create_new_output('Environment Upload Unsuccessful')
+                  replace_output(error_output)
+                } else {
+                  var empty_output = document.createElement('div')
+                  empty_output.id = 'output'
+                  replace_output(empty_output)
+                }
+              })
+            }
+          })
+        })
+      }
+    })
+  })
 }
-
