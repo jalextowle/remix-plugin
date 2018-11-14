@@ -200,7 +200,6 @@ window.onload = function () {
       } else if (output) {
         output = output.replace(/\[0m/g, '').replace(/\[32m/g, '').replace(/\[90m/g, '').replace(/\[92m/g, '')
         var arr = output.split('\n')
-        arr = arr.slice(2, arr.length)
         var new_div = create_new_output('Truffle Test Output:')
         new_div.appendChild(document.createElement('br'))
         append_output(new_div, arr)
@@ -217,8 +216,6 @@ window.onload = function () {
       } else if (output) {
         var truffle_network = JSON.parse(output)
         var network 
-        // FIXME - This could be cleaner
-        // Use the first network to load to remix 
         for (net in obj.networks) {
           network = net
           break 
