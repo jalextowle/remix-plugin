@@ -228,7 +228,7 @@ window.onload = function () {
               var error_output = create_new_output('Environment Upload Unsuccessful')
               replace_output(error_output)
             } else {
-              extension.call('app', 'addProvider', [ Object.keys(truffle_network)[0], truffle_network.host ], (error) => {
+              extension.call('app', 'addProvider', [ Object.keys(truffle_network)[0], 'http://' + truffle_network.host + ':' + truffle_network.port ], (error) => {
                 if (error) { 
                   var error_output = create_new_output('Environment Upload Unsuccessful')
                   replace_output(error_output)
